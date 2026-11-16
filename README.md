@@ -21,9 +21,9 @@ Other parameters: `ELFs` (restrict), `anovaFile` (an `anova_terms.csv`, shown in
 
 ## Output (in `outputPath`, and `sim$reportTables`)
 
-1. `parameterSets.csv`: each coefficient as median and 2.5-97.5% over the kept sets; year-effect `yearSD` and `priorSD` of ignition and escape.
+1. `parameterSets.csv`: each coefficient as median and 2.5-97.5% over the kept sets; year-effect `yearSD` and `priorSD` of ignition and escape (read with `fireSenseUtils::readYearEffects()`).
 2. `inSample.csv`: ignition and escape from the ledger's `modelList$model$yearTotals` (out-of-fold totals): total ratio, Spearman of the years; spread from the ledger column `inSampleSizes_spread`.
-3. `hindcast.csv`: skill rows of `wave1_results.csv`; bias from test B, or derived from gates G2, G4, G6 with the single-run range.
+3. `hindcast.csv`: skill rows of `wave1_results.csv`; bias from the test B rows of the same file (fireSimulator_validation >= 0.0.0.9019); without them, NA rows with a note.
 4. `hindcastYE.csv`: the same for `scoreDirYE`.
 5. `nationalSummary.csv`: per metric, median and 2.5-97.5% range over ELFs.
 6. `report.html`: sortable tables, main and appendix sections, figures from `Plots()`.

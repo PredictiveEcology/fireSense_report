@@ -59,10 +59,10 @@ plotSpreadInSample <- function(data) {
 
 #' Hindcast bias by ELF
 #'
-#' The simulated over observed ratio of every bias metric of the hindcast table, one point per ELF with its range
-#' (the 2.5-97.5% of single runs), log scale, 1 marked.
+#' The simulated over observed ratio of every bias quantity of the hindcast table (`B:<quantity>:ratio`), one point
+#' per ELF with its range (the 2.5-97.5% of single runs), log scale, 1 marked.
 #'
-#' @param data A list: `bias` (rows of a hindcast table whose `metric` starts with `ratio` or `B:`), `title`.
+#' @param data A list: `bias` (the rows of a hindcast table whose `metric` is `B:<quantity>:ratio`), `title`.
 #' @return A ggplot.
 plotBiasByELF <- function(data) {
   d <- data$bias

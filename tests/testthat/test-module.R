@@ -26,4 +26,5 @@ test_that("the module writes the four tables, the national summary and report.ht
   expect_match(html, "data-v=\"0.25\"", fixed = TRUE); expect_match(html, "table class=sortable", fixed = TRUE)
   expect_match(html, "data:image/png;base64,", fixed = TRUE); expect_match(html, "ANOVA terms", fixed = TRUE)
   expect_match(html, "no inSampleSizes_spread", fixed = TRUE)
+  expect_match(html, "no bias rows: rescore with fireSimulator_validation", fixed = TRUE)
 })

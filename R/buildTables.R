@@ -4,10 +4,12 @@
 armTables <- function(row, ELFs = character(0)) {
   spread <- readLedgerRows(row$spreadLedger, ELFs)
   ign <- readLedgerRows(row$ignitionLedger, ELFs)
-  ignYE <- if (!is.na(row$ignitionLedgerYE)) readLedgerRows(row$ignitionLedgerYE, ELFs)
+  priorFile <- if (!is.na(row$ignitionLedgerYE)) row$ignitionLedgerYE else row$ignitionLedger
+  prior <- priorSDTable(priorFile)
+  if (!is.null(prior) && length(ELFs)) prior <- prior[prior$ELF %in% ELFs, ]
   totals <- yearTotalsTable(ign)
   inSample <- inSampleSizesOf(spread)
-  list(parameterSets = rbind(spreadParameterTable(spread), ignitionParameterTable(ign, ignYE)),
+  list(parameterSets = rbind(spreadParameterTable(spread), ignitionParameterTable(ign, prior)),
        inSample = rbind(totalsFitTable(totals), spreadFitTable(inSample)),
        hindcast = hindcastTable(readScoreDirs(row$scoreDir), ELFs),
        hindcastYE = hindcastTable(readScoreDirs(row$scoreDirYE), ELFs),
@@ -19,8 +21,8 @@ armTables <- function(row, ELFs = character(0)) {
 #' @param runs [readRuns()]. @param ELFs ELFs to keep; empty for all.
 #' @return A list: `runs`; `parameterSets` (table 1: `arm`, `role`, `ELF`, `source`, `term`, `median`, `lo`, `hi`, `n`, `link`);
 #'   `inSample` (table 2: `arm`, `role`, `ELF`, `stage`, `metric`, `value`, `note`); `hindcast` and `hindcastYE` (tables 3 and 4:
-#'   `arm`, `role`, `ELF`, `metric`, `value`, `lo`, `hi`, `source`, `pass`); `nationalSummary` (`arm`, `role`, `table`, `metric`,
-#'   `nELF`, `median`, `lo`, `hi`: the median over ELFs and their 2.5-97.5% range); `yearTotals` (per year totals, for the
+#'   `arm`, `role`, `ELF`, `metric`, `value`, `lo`, `hi`, `source`, `note`); `nationalSummary` (`arm`, `role`, `table`, `metric`,
+#'   `nELF`, `nNA`, `median`, `lo`, `hi`: the median over ELFs and their 2.5-97.5% range); `yearTotals` (per year totals, for the
 #'   figures) and `spreadSizes` (per arm, per ELF, the in-sample fire-size tables).
 buildReportTables <- function(runs, ELFs = character(0)) {
   per <- stats::setNames(lapply(seq_len(nrow(runs)), function(i) armTables(runs[i, ], ELFs)), runs$arm)
@@ -72,7 +74,7 @@ figureJobs <- function(tables) {
       if (!is.null(s$sizes) && !is.null(s$byYear))
         add(arm, role, elf, "spread", list(sizes = s$sizes, byYear = s$byYear, title = paste("Arm", arm, "ELF", elf, ": fitted fires, observed and simulated")), plotSpreadInSample)
     }
-    h <- tables$hindcast[tables$hindcast$arm == arm & grepl("^(ratio|B:)", tables$hindcast$metric) & tables$hindcast$ELF != "all", ]
+    h <- tables$hindcast[tables$hindcast$arm == arm & grepl("^B:.*:ratio$", tables$hindcast$metric) & tables$hindcast$ELF != "all", ]
     if (nrow(h)) add(arm, role, "all", "bias", list(bias = h, title = paste("Arm", arm, ": hindcast bias by ELF")), plotBiasByELF)
   }
   jobs

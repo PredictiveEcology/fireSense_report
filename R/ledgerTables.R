@@ -1,9 +1,5 @@
 ## Tables 1 and 2 from the fit ledgers: parameter sets and in-sample (out-of-fold, for ignition and escape) fit.
 
-## the ledger column of the spread fit's in-sample fire-size tables (fireSense_spreadFit); the name is
-## `fireSenseUtils::spreadFitInSampleSizesTxt` once that constant is released
-inSampleSizesCol <- "inSampleSizes_spread"
-
 #' Median and 2.5-97.5% range of a vector
 #'
 #' @param x Numeric.
@@ -52,29 +48,40 @@ spreadParameterTable <- function(ledger) {
   out
 }
 
-## the fitted model of one process of one ledger row (`fireSenseUtils::ignitionFitAdditionalColNamesTxt`: ignition, escape)
+## the fitted model of one process (`fireSenseUtils::ignitionFitAdditionalColNamesTxt`: ignition, escape) of ledger row i
 processModelList <- function(ledger, i, process) {
   col <- stats::setNames(fireSenseUtils::ignitionFitAdditionalColNamesTxt, c("ignition", "escape"))[[process]]
   ledger[[col]][[i]]$modelList
 }
 
+#' The year-effect prior sd of ignitions and escapes
+#'
+#' @param ledgerFile An ignition ledger with fitted year effects (`modelList$yearEffects`), read with
+#'   `fireSenseUtils::readYearEffects()`.
+#' @return A `data.frame`: `ELF`, `process`, `priorSD` (constant over the years of an ELF); `NULL` when the ledger has no
+#'   year effects (an older fit), with a message.
+priorSDTable <- function(ledgerFile) {
+  ye <- tryCatch(fireSenseUtils::readYearEffects(ledgerFile),
+                 error = function(e) { message(basename(ledgerFile), ": no year effects (", conditionMessage(e), ")"); NULL })
+  if (is.null(ye)) return(NULL)
+  ye <- ye[!duplicated(ye[c("ELF", "process")]), ]
+  data.frame(ELF = ye$ELF, process = ye$process, priorSD = ye$priorSD)
+}
+
 #' Table 1, ignition part: the sd of the year effect of ignitions and escapes
 #'
 #' @param ledger An ignition ledger from [readLedgerRows()].
-#' @param ledgerYE An ignition ledger with `modelList$yearEffects` (fitted year effects), or `NULL`: the prior sd is
-#'   read from `ledger` then.
+#' @param priorSD [priorSDTable()] or `NULL` (no year effects: the prior sd is `NA`).
 #' @return A `data.frame`: `ELF`, `source` (`"ignition"`, `"escape"`), `term` (`"yearSD"`: out-of-year sd of the
 #'   year effect that a hindcast draws; `"priorSD"`: the sd of the prior of the fitted year effects), `median`
-#'   (the value; `NA` when the ledger does not have it), `lo`, `hi` (`NA`), `n` (1 or 0).
-ignitionParameterTable <- function(ledger, ledgerYE = NULL) {
+#'   (the value; `NA` when the ledger does not have it), `lo`, `hi` (`NA`), `n` (1 or 0), `link` (`NA`).
+ignitionParameterTable <- function(ledger, priorSD = NULL) {
   value <- function(x) if (length(x) && is.finite(x[1])) as.numeric(x[1]) else NA_real_
   rows <- lapply(seq_len(nrow(ledger)), function(i) do.call(rbind, lapply(c("ignition", "escape"), function(p) {
     yearSD <- value(processModelList(ledger, i, p)$yearSD)
-    j <- if (is.null(ledgerYE)) NA_integer_ else match(ledger$polygonID[i], ledgerYE$polygonID)
-    ye <- if (is.null(ledgerYE)) processModelList(ledger, i, p)$yearEffects else if (!is.na(j)) processModelList(ledgerYE, j, p)$yearEffects
-    priorSD <- value(ye$priorSD)
-    data.frame(ELF = ledger$polygonID[i], source = p, term = c("yearSD", "priorSD"), median = c(yearSD, priorSD),
-               lo = NA_real_, hi = NA_real_, n = as.integer(is.finite(c(yearSD, priorSD))), link = NA_character_)
+    prior <- value(priorSD$priorSD[priorSD$ELF == ledger$polygonID[i] & priorSD$process == p])
+    data.frame(ELF = ledger$polygonID[i], source = p, term = c("yearSD", "priorSD"), median = c(yearSD, prior),
+               lo = NA_real_, hi = NA_real_, n = as.integer(is.finite(c(yearSD, prior))), link = NA_character_)
   })))
   out <- do.call(rbind, rows)
   rownames(out) <- NULL
@@ -133,7 +140,8 @@ totalsFitTable <- function(totals) {
 #' @return A named list (names are ELFs): `list(sizes =` the one-row `fireSenseUtils::scoreFireSizes()` table, `byYear =`
 #'   the per-year table`)`, or `NULL` for an ELF whose ledger row has none (or a ledger without the column).
 inSampleSizesOf <- function(ledger) {
-  stats::setNames(lapply(seq_len(nrow(ledger)), function(i) if (inSampleSizesCol %in% names(ledger)) ledger[[inSampleSizesCol]][[i]]),
+  col <- fireSenseUtils::spreadFitInSampleSizesTxt
+  stats::setNames(lapply(seq_len(nrow(ledger)), function(i) if (col %in% names(ledger)) ledger[[col]][[i]]),
                   ledger$polygonID)
 }
 
@@ -147,7 +155,7 @@ spreadFitTable <- function(inSample) {
   do.call(rbind, unname(Map(function(x, elf) {
     if (is.null(x) || is.null(x$sizes))
       return(data.frame(ELF = elf, stage = "spread", metric = NA_character_, value = NA_real_,
-                        note = paste0("no ", inSampleSizesCol, " in the spread ledger")))
+                        note = paste0("no ", fireSenseUtils::spreadFitInSampleSizesTxt, " in the spread ledger")))
     s <- as.data.frame(x$sizes)
     s <- s[, !grepl("^q(Obs|Sim)_", names(s)), drop = FALSE]
     data.frame(ELF = elf, stage = "spread", metric = names(s), value = as.numeric(unlist(s[1, ])), note = "")

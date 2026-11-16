@@ -32,7 +32,7 @@ toyIgnitionLedger <- function(file, elfs, priorSD = FALSE, seed = 1) {
   fitted <- function(i, sd) {
     obs <- rpois(10, 20); pred <- obs * exp(rnorm(10, 0, 0.3))
     ml <- list(model = list(yearTotals = data.frame(year = seq(-1, 1, length.out = 10), observed = obs, predicted = pred)), yearSD = sd)
-    if (priorSD) ml$yearEffects <- data.frame(year = 1:10, priorSD = sd / 2)
+    if (priorSD) ml$yearEffects <- data.frame(year = 1:10, observed = obs, expected = pred, priorSD = sd / 2, multiplier = 1, shape = 10)
     list(modelList = ml)
   }
   x <- data.frame(polygonID = elfs)
@@ -42,24 +42,21 @@ toyIgnitionLedger <- function(file, elfs, priorSD = FALSE, seed = 1) {
   file
 }
 
-## a score folder: wave1_results.csv (+ wave1.rds with gates); `elfs` are scored in it, `bias` adds test "B" rows
+## a score folder: wave1_results.csv; `elfs` are scored in it, `bias` adds test "B" rows (as fireSimulator_validation's biasResultRows())
 toyScoreDir <- function(dir, elfs, bias = FALSE, pooled = TRUE) {
   dir.create(dir, recursive = TRUE)
   res <- do.call(rbind, lapply(c(if (pooled) "all", elfs), function(e)
     data.frame(test = "S1", null = c("N0", "N1"), level = if (e == "all") "pooled" else "ELF", ELF = e, measure = "skill",
                value = if (e == "all") c(0.3, 0.2) else c(0.1, 0.05) * (match(e, elfs) + 1), lo = NA_real_, hi = NA_real_,
                nELF = 1L, nUnits = 10L, verdict = NA_character_)))
-  if (bias) res <- rbind(res, data.frame(test = "B", null = NA, level = "ELF", ELF = elfs, measure = "ratioArea", value = 1.1, lo = 0.9, hi = 1.4,
-                                         nELF = 1L, nUnits = 10L, verdict = NA_character_))
+  if (bias) res <- rbind(res, do.call(rbind, lapply(c("area", "ignitions"), function(q) do.call(rbind, lapply(c("ratio", "log2ratio"), function(m) {
+    i <- match(elfs, elfs) + 1                                       # a ratio per ELF: 0.8 + 0.1 * i for the area, 1 for ignitions
+    r <- if (q == "area") 0.7 + 0.1 * i else rep(1, length(elfs))
+    f <- if (m == "ratio") identity else log2
+    data.frame(test = "B", null = q, level = "ELF", ELF = elfs, measure = m, value = f(r), lo = f(r * 0.7), hi = f(r * 1.5),
+               nELF = 1L, nUnits = 20L, verdict = NA_character_)
+  })))))
   utils::write.csv(res, file.path(dir, "wave1_results.csv"), row.names = FALSE)
-  link <- function(k, v) sprintf("%s %s (median-run 95%%: 0.5-1.5; single runs 95%%: %s-%s)", k, v, v - 0.2, v + 0.3)
-  gates <- do.call(rbind, lapply(elfs, function(e) {
-    i <- match(e, elfs)
-    data.frame(ELF = e, gate = c("G2", "G4", "G6"), pass = c(TRUE, TRUE, TRUE), value = c(0.8 + 0.1 * i, 1.1, NA),
-               detail = c("ratio", "ratio", paste(link("ignitions", 1), link("escapeRate", 0.9), link("areaPerEscape", 1.2), sep = "; ")),
-               lo = NA_real_, hi = NA_real_, runLo = c(0.5 + 0.1 * i, 0.7, NA), runHi = c(1.3 + 0.1 * i, 1.6, NA))
-  }))
-  saveRDS(list(results = res, gates = gates), file.path(dir, "wave1.rds"))
   dir
 }
 
@@ -73,7 +70,7 @@ toyRuns <- function(root) {
     ignitionLedger = c(toyIgnitionLedger(file.path(root, "ignBest.rds"), c("1.1", "2.2", "3.3"), seed = 1),
                        toyIgnitionLedger(file.path(root, "ignAlt.rds"), c("1.1", "2.2"), seed = 2)),
     ignitionLedgerYE = c(toyIgnitionLedger(file.path(root, "ignBestYE.rds"), c("1.1", "2.2", "3.3"), priorSD = TRUE, seed = 1), NA),
-    scoreDir = c(paste(toyScoreDir(file.path(root, "scoreBestA"), c("1.1", "2.2")), toyScoreDir(file.path(root, "scoreBestB"), "3.3"), sep = ";"),
+    scoreDir = c(paste(toyScoreDir(file.path(root, "scoreBestA"), c("1.1", "2.2"), bias = TRUE), toyScoreDir(file.path(root, "scoreBestB"), "3.3", bias = TRUE), sep = ";"),
                  toyScoreDir(file.path(root, "scoreAlt"), c("1.1", "2.2"), bias = TRUE)),
     scoreDirYE = c(toyScoreDir(file.path(root, "scoreBestYE"), c("1.1", "2.2", "3.3")), NA),
     stringsAsFactors = FALSE)
