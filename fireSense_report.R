@@ -14,7 +14,7 @@ defineModule(sim, list(
   documentation = list("README.md"),
   reqdPkgs = list("data.table", "ggplot2", "patchwork", "jsonlite",
                   "PredictiveEcology/SpaDES.core@development (>= 3.2.1.9037)",
-                  "PredictiveEcology/fireSenseUtils@development"),
+                  "PredictiveEcology/fireSenseUtils@development (>= 0.2.3.9173)"),
   parameters = bindrows(
     defineParameter("runs", "ANY", NA, NA, NA,
                     paste("A csv path or a data.frame, one row per arm: `arm` (label), `role` ('main' or 'appendix'), `spreadLedger` and `ignitionLedger`",
